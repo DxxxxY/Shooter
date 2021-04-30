@@ -1,32 +1,7 @@
 const socket = io()
 
 var players = {}
-
-socket.on("currentPlayers", playerArray => {
-    players = playerArray
-        //console.log(players)
-})
-
-socket.on("player-join", player => {
-    //console.log("Someone spawned")
-    players[player.playerId] = player
-        //players = playerArray
-        //TODO: announce(`${player.name} has joined`, "green")
-    console.log(players)
-})
-
-socket.on("player-leave", player => {
-    delete players[player]
-        //players = playerArray
-        //console.log(players)
-        //TODO: announce(`${player.name} has left`, "red")
-})
-
-socket.on("player-move", player => {
-    //console.log(player)
-    //console.log(players)
-    players[player.playerId] = player
-})
+var notifs = []
 
 const canvas = document.createElement("canvas")
 const ctx = canvas.getContext("2d")
@@ -78,10 +53,58 @@ document.getElementById("join").addEventListener("click", e => {
         socket.emit("player-move", player)
         socket.emit("broadcast:player-move", player) //send to the rest except sender
     })
+    socket.on("currentPlayers", playerArray => {
+        players = playerArray
+            //console.log(players)
+    })
+
+    socket.on("player-join", player => {
+        //console.log("Someone spawned")
+        players[player.playerId] = player
+            //players = playerArray
+        announce(`${player.name} has joined`, "green")
+        console.log(players)
+    })
+
+    socket.on("player-leave", player => {
+        delete players[player.playerId]
+            //players = playerArray
+            //console.log(players)
+        announce(`${player.name} has left`, "red")
+    })
+
+    socket.on("player-move", player => {
+        //console.log(player)
+        //console.log(players)
+        players[player.playerId] = player
+    })
+
     game()
 })
 
 //Chat notifications kinda
 const announce = (string, color) => {
-
+    let para = document.createElement("p")
+    let node = document.createTextNode(string)
+    para.appendChild(node)
+    para.style.color = color
+    para.style.fontFamily = "Poppins, sans-serif"
+    para.style.fontSize = "1vw"
+    para.style.position = "absolute"
+    para.style.right = "2vw"
+    para.style.top = `${1 + (2 * notifs.length)}vh`
+    document.body.appendChild(para)
+    notifs.push(para)
+    setTimeout(() => {
+        notifs.splice(notifs.indexOf(para), 1)
+        para.style.transition = "0.15s ease-in"
+        para.style.top = `${+para.style.top.replace(/\D/g,'') - 2}vh`
+        setTimeout(() => {
+            para.remove()
+            notifs.forEach(e => {
+                e.style.transition = "0.15s ease-in"
+                e.style.top = `${+e.style.top.replace(/\D/g,'') - 2}vh`
+            })
+        }, 150)
+    }, 5000)
 }

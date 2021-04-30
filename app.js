@@ -45,9 +45,9 @@ io.on('connection', socket => {
 
 
     socket.on('disconnect', () => {
-        delete players[socket.id];
         socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
-            //console.log("User disconnected")
+        delete players[socket.id];
+        //console.log("User disconnected")
     })
 
     socket.on("broadcast:player-move", player => {
