@@ -26,9 +26,9 @@ http.listen(port, () => {
 const players = {}
 
 io.on('connection', socket => {
-    console.log('User connected!')
-        //var players = {socket.id: player}
-        //var players = {key: value}
+    //console.log('User connected!')
+    //var players = {socket.id: player}
+    //var players = {key: value}
     players[socket.id] = {
         rotation: 0,
         x: Math.floor(Math.random() * 700) + 50,
@@ -42,6 +42,6 @@ io.on('connection', socket => {
     socket.on('disconnect', () => {
         delete players[socket.id];
         socket.broadcast.emit("player-leave", /*socket.id*/ players)
-        console.log("User disconnected")
+            //console.log("User disconnected")
     })
 })

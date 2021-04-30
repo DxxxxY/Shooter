@@ -4,18 +4,18 @@ var players = {}
 
 socket.on("currentPlayers", playerArray => {
     players = playerArray
-    console.log(players)
+        //console.log(players)
 })
 
-socket.on("player-join", player => {
-    console.log("Someone spawned")
+socket.on("player-join", playerArray => {
+    //console.log("Someone spawned")
     players = playerArray
-    console.log(players)
+        //console.log(players)
 })
 
-socket.on("player-leave", player => {
+socket.on("player-leave", playerArray => {
     players = playerArray
-    console.log(players)
+        //console.log(players)
 })
 
 const canvas = document.createElement("canvas")
@@ -31,7 +31,8 @@ document.body.appendChild(canvas)
 const draw = () => {
     Object.keys(players).forEach(p => {
         ctx.fillStyle = "white"
-        ctx.fillRect(p.x, p.y, 20, 20)
+            //console.log("Drawing", players[p].x, players[p].y)
+        ctx.fillRect(players[p].x, players[p].y, 20, 20)
     })
 }
 
@@ -39,6 +40,7 @@ const game = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     draw()
+    requestAnimationFrame(game)
 }
 
 game()
