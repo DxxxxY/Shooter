@@ -29,19 +29,28 @@ io.on('connection', socket => {
     //console.log('User connected!')
     //var players = {socket.id: player}
     //var players = {key: value}
-    players[socket.id] = {
-        rotation: 0,
-        x: Math.floor(Math.random() * 700) + 50,
-        y: Math.floor(Math.random() * 500) + 50,
-        playerId: socket.id
-    };
-    //Test, first send updated players, then try to send 1 by 1 player
-    socket.emit('currentPlayers', players); //Send to new player
-    socket.broadcast.emit('player-join', players /*[socket.id]*/ ); //Send to rest of players
+    socket.on("player-create", name => {
+        players[socket.id] = {
+            rotation: 0,
+            x: Math.floor(Math.random() * 700) + 50,
+            y: Math.floor(Math.random() * 500) + 50,
+            playerId: socket.id,
+            name: name
+        };
+        //Test, first send updated players, then try to send 1 by 1 player
+        socket.emit('currentPlayers', players); //Send to new player
+        socket.broadcast.emit('player-join', players[socket.id] /* players*/ ); //Send to rest of players
+    })
+
+
 
     socket.on('disconnect', () => {
         delete players[socket.id];
-        socket.broadcast.emit("player-leave", /*socket.id*/ players)
+        socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
             //console.log("User disconnected")
+    })
+
+    socket.on("broadcast:player-move", player => {
+        socket.broadcast.emit("player-move", player)
     })
 })

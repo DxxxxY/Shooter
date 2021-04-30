@@ -1,3 +1,46 @@
 body {
     overflow: hidden;
 }
+
+.container {
+    background-color: lightgray;
+    opacity: 0.75;
+    position: absolute;
+    top: 33vh;
+    left: 33.5vw;
+    width: 600px;
+    height: 200px;
+    border: rgb(72, 161, 72) 2px solid;
+    border-radius: 25px;
+    text-align: center;
+    outline: none;
+}
+
+.text {
+    color: black;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5vw;
+}
+
+.nameInput {
+    border: rgb(72, 161, 72) 2px solid;
+    border-radius: 25px;
+    outline: none;
+    color: black;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5vw;
+}
+
+.nameInput:focus {
+    border-color: black;
+    transition: 0.15s ease-in;
+}
+
+.join {
+    border: rgb(72, 161, 72) 2px solid;
+    border-radius: 25px;
+    color: black;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5vw;
+    outline: none;
+}
