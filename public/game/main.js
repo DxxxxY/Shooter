@@ -2,6 +2,7 @@ const socket = io()
 
 var players = {}
 var notifs = []
+var toDraw = []
 
 const canvas = document.createElement("canvas")
 const ctx = canvas.getContext("2d")
@@ -13,74 +14,114 @@ canvas.style.display = "block"
 canvas.style.margin = "auto"
 document.body.appendChild(canvas)
 
+document.addEventListener('contextmenu', e => e.preventDefault())
+
 const draw = () => {
     Object.keys(players).forEach(p => {
+        //Player
         ctx.fillStyle = "white"
-            //console.log("Drawing", players[p].x, players[p].y)
         ctx.fillRect(players[p].x, players[p].y, 20, 20)
+            //Name
         ctx.font = "12px Arial";
-        //console.log(players[p].name)
         ctx.fillText(players[p].name, players[p].x - 2.5, players[p].y + 40)
+            //Healthbar
+        ctx.strokeStyle = "green"
+        ctx.strokeRect(players[p].x - 2.5, players[p].y - 20, 40, 5)
+        ctx.fillStyle = "green"
+        ctx.fillRect(players[p].x - 2.5, players[p].y - 20, players[p].health / 2.5, 5)
+            //Manabar
+        ctx.strokeStyle = "cyan"
+        ctx.strokeRect(players[p].x - 2.5, players[p].y - 10, 40, 5)
+        ctx.fillStyle = "cyan"
+        ctx.fillRect(players[p].x - 2.5, players[p].y - 10, players[p].mana / 2.5, 5)
     })
-}
-
-const game = () => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    draw()
-    requestAnimationFrame(game)
+    toDraw.forEach(e => e.draw())
 }
 
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
     socket.emit("player-create", document.getElementById("name").value)
-    window.addEventListener("keydown", e => {
-        let player = players[socket.id]
-        switch (e.key) {
-            case "ArrowUp": //38
-                player.y -= 10
-                break
-            case "ArrowDown": //40
-                player.y += 10
-                break
-            case "ArrowLeft": //37
-                player.x -= 10
-                break
-            case "ArrowRight": //39
-                player.x += 10
-                break
-        }
-        socket.emit("player-move", player)
-        socket.emit("broadcast:player-move", player) //send to the rest except sender
-    })
+
     socket.on("currentPlayers", playerArray => {
         players = playerArray
-            //console.log(players)
     })
 
     socket.on("player-join", player => {
-        //console.log("Someone spawned")
         players[player.playerId] = player
-            //players = playerArray
         announce(`${player.name} has joined`, "green")
-        console.log(players)
     })
 
     socket.on("player-leave", player => {
         delete players[player.playerId]
-            //players = playerArray
-            //console.log(players)
         announce(`${player.name} has left`, "red")
     })
 
     socket.on("player-move", player => {
-        //console.log(player)
-        //console.log(players)
         players[player.playerId] = player
+        if (players[player.playerId].mana <= 99) players[player.playerId].mana += 1
     })
 
-    game()
+    socket.on("player-shoot", bullet => {
+        toDraw.push(bullet)
+    })
+
+    socket.on("start-game", () => {
+        document.addEventListener("keydown", keyboard)
+        document.addEventListener("keydown", e => {
+            if (!keyLength.includes(e.keyCode)) keyLength.push(e.keyCode)
+            toKey = e.keyCode
+            if (e.keyCode === 37 || e.keyCode === 38 || e.keyCode === 39 || e.keyCode === 40) lastDir = e.keyCode
+        })
+        document.addEventListener("keyup", e => {
+            keyLength.splice(keyLength.indexOf(e.keyCode), 1)
+            if (keyLength.length == 0) toKey = 0
+        })
+        window.addEventListener("click", e => {
+            let player = players[socket.id]
+            if (e.button == 0) { //Shoot
+                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 5, 5, "")
+                toDraw.push(bullet)
+                socket.emit("player-shoot", bullet)
+                socket.emit("broadcast:player-shoot", bullet)
+            }
+            if (e.button == 2) { //Melee
+
+            }
+        })
+        game()
+    })
+
 })
+
+//Define past positions
+let pastX = 0
+let pastY = 0
+let lastDir = 40 //Default value (down)
+
+const game = () => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    draw()
+    pastX = players[socket.id].x
+    pastY = players[socket.id].y
+    keyboard()
+    requestAnimationFrame(game)
+}
+
+var toKey = 0
+const keyLength = []
+const keyboard = () => {
+    let player = players[socket.id]
+    if (toKey == 37 /* && player.x > 0*/ ) player.x -= 5
+    if (toKey == 38 /* && player.y > 0*/ ) player.y -= 5
+    if (toKey == 39 /* && player.x < canvas.width - player.w*/ ) player.x += 5
+    if (toKey == 40 /* && player.y < canvas.height - player.h*/ ) player.y += 5
+    if (toKey == 37 || toKey == 38 || toKey == 39 || toKey == 40) {
+        if (player.mana <= 99) player.mana += 1
+        socket.emit("player-move", player)
+        socket.emit("broadcast:player-move", player)
+    }
+}
 
 //Chat notifications kinda
 const announce = (string, color) => {
@@ -107,4 +148,104 @@ const announce = (string, color) => {
             })
         }, 150)
     }, 5000)
+}
+
+//Projectile object
+function Projectile(x, y, w, h, color, damage, speed, dir) {
+    //Dimensions
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+    this.color = color
+    this.dir = dir
+        //Attributes
+    this.damage = damage
+    this.speed = speed
+    this.slowed = false
+        //Execute when created =>
+    let xory = ""
+    if (this.dir == "") {
+        switch (getDir(lastDir)) {
+            case "left":
+                xory = "X"
+                this.speed = -this.speed
+                break
+            case "up":
+                xory = "Y"
+                this.speed = -this.speed
+                break
+            case "right":
+                xory = "X"
+                this.speed = +this.speed
+                break
+            case "down":
+                xory = "Y"
+                this.speed = +this.speed
+                break
+            default:
+                return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
+        }
+    } else {
+        switch (dir) {
+            case "left":
+                xory = "X"
+                this.speed = -this.speed
+                break
+            case "up":
+                xory = "Y"
+                this.speed = -this.speed
+                break
+            case "right":
+                xory = "X"
+                this.speed = +this.speed
+                break
+            case "down":
+                xory = "Y"
+                this.speed = +this.speed
+                break
+            default:
+                return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
+        }
+    }
+    //this.collision = () => { toDraw.forEach(e => { if (e instanceof Surface || e instanceof Player || e instanceof Target || e instanceof Electric || e instanceof Enemy) hitWall(this, e) }) }
+    this.draw = () => {
+        ctx.fillStyle = this.color
+        ctx.fillRect(this.x, this.y, this.w, this.h)
+        if (xory === "Y") {
+            this.w = h
+            this.h = w
+            this.y += this.speed
+        }
+        if (xory === "X") {
+            this.w = this.w
+            this.h = this.h
+            this.x += this.speed
+        }
+        //this.collision()
+        //Optimization (remove projectiles when out of canvas)
+        if (this.x > canvas.width || this.y > canvas.height) toDraw.splice(toDraw.indexOf(this), 1)
+    }
+}
+
+//Get getDir(lastDir) from last pressed key
+const getDir = (key) => {
+    let dir = ""
+    switch (key) {
+        case 37:
+            dir = "left"
+            break
+        case 38:
+            dir = "up"
+            break
+        case 39:
+            dir = "right"
+            break
+        case 40:
+            dir = "down"
+            break
+        default:
+            return console.log("Couldn't get getDir(lastDir)")
+    }
+    return dir
 }

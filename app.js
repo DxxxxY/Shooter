@@ -35,11 +35,14 @@ io.on('connection', socket => {
             x: Math.floor(Math.random() * 700) + 50,
             y: Math.floor(Math.random() * 500) + 50,
             playerId: socket.id,
-            name: name
+            name: name,
+            health: 100,
+            mana: 0
         };
         //Test, first send updated players, then try to send 1 by 1 player
         socket.emit('currentPlayers', players); //Send to new player
         socket.broadcast.emit('player-join', players[socket.id] /* players*/ ); //Send to rest of players
+        socket.emit("start-game")
     })
 
 
@@ -52,5 +55,9 @@ io.on('connection', socket => {
 
     socket.on("broadcast:player-move", player => {
         socket.broadcast.emit("player-move", player)
+    })
+
+    socket.on("broadcast:player-shoot", bullet => {
+        socket.broadcast.emit("player-shoot", bullet)
     })
 })
