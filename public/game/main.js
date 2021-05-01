@@ -35,7 +35,7 @@ const draw = () => {
         ctx.fillStyle = "cyan"
         ctx.fillRect(players[p].x - 2.5, players[p].y - 10, players[p].mana / 2.5, 5)
     })
-    toDraw.forEach(e => e.draw())
+    toDraw.forEach(e => { e.draw() })
 }
 
 document.getElementById("join").addEventListener("click", e => {
