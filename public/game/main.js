@@ -62,7 +62,7 @@ document.getElementById("join").addEventListener("click", e => {
     })
 
     socket.on("player-shoot", bullet => {
-        toDraw.push(bullet)
+        toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.xory))
     })
 
     socket.on("start-game", () => {
@@ -79,7 +79,7 @@ document.getElementById("join").addEventListener("click", e => {
         window.addEventListener("click", e => {
             let player = players[socket.id]
             if (e.button == 0) { //Shoot
-                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 5, 5, "")
+                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 5, 5, "", false)
                 toDraw.push(bullet)
                 socket.emit("player-shoot", bullet)
                 socket.emit("broadcast:player-shoot", bullet)
@@ -151,7 +151,7 @@ const announce = (string, color) => {
 }
 
 //Projectile object
-function Projectile(x, y, w, h, color, damage, speed, dir) {
+function Projectile(x, y, w, h, color, damage, speed, dir, enemy, xory = "") {
     //Dimensions
     this.x = x
     this.y = y
@@ -163,61 +163,63 @@ function Projectile(x, y, w, h, color, damage, speed, dir) {
     this.damage = damage
     this.speed = speed
     this.slowed = false
+    this.enemy = enemy
+    this.xory = xory
         //Execute when created =>
-    let xory = ""
-    if (this.dir == "") {
+    if (this.dir == "" && !this.enemy && this.xory == "") {
         switch (getDir(lastDir)) {
             case "left":
-                xory = "X"
+                this.xory = "X"
                 this.speed = -this.speed
                 break
             case "up":
-                xory = "Y"
+                this.xory = "Y"
                 this.speed = -this.speed
                 break
             case "right":
-                xory = "X"
+                this.xory = "X"
                 this.speed = +this.speed
                 break
             case "down":
-                xory = "Y"
-                this.speed = +this.speed
-                break
-            default:
-                return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
-        }
-    } else {
-        switch (dir) {
-            case "left":
-                xory = "X"
-                this.speed = -this.speed
-                break
-            case "up":
-                xory = "Y"
-                this.speed = -this.speed
-                break
-            case "right":
-                xory = "X"
-                this.speed = +this.speed
-                break
-            case "down":
-                xory = "Y"
+                this.xory = "Y"
                 this.speed = +this.speed
                 break
             default:
                 return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
         }
     }
+    /*else {
+           switch (dir) {
+               case "left":
+                   xory = "X"
+                   this.speed = -this.speed
+                   break
+               case "up":
+                   xory = "Y"
+                   this.speed = -this.speed
+                   break
+               case "right":
+                   xory = "X"
+                   this.speed = +this.speed
+                   break
+               case "down":
+                   xory = "Y"
+                   this.speed = +this.speed
+                   break
+               default:
+                   return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
+           }
+       }*/
     //this.collision = () => { toDraw.forEach(e => { if (e instanceof Surface || e instanceof Player || e instanceof Target || e instanceof Electric || e instanceof Enemy) hitWall(this, e) }) }
     this.draw = () => {
         ctx.fillStyle = this.color
         ctx.fillRect(this.x, this.y, this.w, this.h)
-        if (xory === "Y") {
+        if (this.xory === "Y") {
             this.w = h
             this.h = w
             this.y += this.speed
         }
-        if (xory === "X") {
+        if (this.xory === "X") {
             this.w = this.w
             this.h = this.h
             this.x += this.speed
