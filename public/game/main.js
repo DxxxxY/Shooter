@@ -62,7 +62,12 @@ document.getElementById("join").addEventListener("click", e => {
     })
 
     socket.on("player-shoot", bullet => {
-        toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.xory))
+        toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory))
+    })
+
+    socket.on("player-heal", (player, heal) => {
+        players[player.playerId].health += heal
+        players[player.playerId].mana = 0
     })
 
     socket.on("start-game", () => {
@@ -72,6 +77,19 @@ document.getElementById("join").addEventListener("click", e => {
             toKey = e.keyCode
             if (e.keyCode === 37 || e.keyCode === 38 || e.keyCode === 39 || e.keyCode === 40) lastDir = e.keyCode
         })
+        document.addEventListener("keypress", e => {
+            if (e.keyCode === 32) {
+                let player = players[socket.id]
+                    //Regen 25% of hp
+                if (player.mana >= 100) {
+                    player.mana = 0
+                    if (player.health >= 75) player.health = 100
+                    else player.health += 25
+                    socket.emit("player-heal", player, 25)
+                    socket.emit("broadcast:player-heal", player, 25)
+                }
+            }
+        })
         document.addEventListener("keyup", e => {
             keyLength.splice(keyLength.indexOf(e.keyCode), 1)
             if (keyLength.length == 0) toKey = 0
@@ -79,7 +97,7 @@ document.getElementById("join").addEventListener("click", e => {
         window.addEventListener("click", e => {
             let player = players[socket.id]
             if (e.button == 0) { //Shoot
-                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 5, 5, "", false)
+                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player)
                 toDraw.push(bullet)
                 socket.emit("player-shoot", bullet)
                 socket.emit("broadcast:player-shoot", bullet)
@@ -151,7 +169,7 @@ const announce = (string, color) => {
 }
 
 //Projectile object
-function Projectile(x, y, w, h, color, damage, speed, dir, enemy, xory = "") {
+function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = "") {
     //Dimensions
     this.x = x
     this.y = y
@@ -164,6 +182,7 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, xory = "") {
     this.speed = speed
     this.slowed = false
     this.enemy = enemy
+    this.owner = owner
     this.xory = xory
         //Execute when created =>
     if (this.dir == "" && !this.enemy && this.xory == "") {
@@ -210,7 +229,11 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, xory = "") {
                    return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
            }
        }*/
-    //this.collision = () => { toDraw.forEach(e => { if (e instanceof Surface || e instanceof Player || e instanceof Target || e instanceof Electric || e instanceof Enemy) hitWall(this, e) }) }
+    this.collision = () => {
+        Object.keys(players).forEach(p => {
+            hitWall(this, players[p])
+        })
+    }
     this.draw = () => {
         ctx.fillStyle = this.color
         ctx.fillRect(this.x, this.y, this.w, this.h)
@@ -224,9 +247,22 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, xory = "") {
             this.h = this.h
             this.x += this.speed
         }
-        //this.collision()
-        //Optimization (remove projectiles when out of canvas)
-        if (this.x > canvas.width || this.y > canvas.height) toDraw.splice(toDraw.indexOf(this), 1)
+        this.collision()
+            //Optimization (remove projectiles when out of canvas)
+        if (this.x > canvas.width || this.y > canvas.height || this.x < 0 || this.y < 0) toDraw.splice(toDraw.indexOf(this), 1)
+    }
+}
+
+//Collision rect to rect
+const collision = (a, b) => { if (a.x + a.w > b.x && a.x < b.x + 20 && a.y < b.y + 20 && a.y + a.h > b.y) return true }
+
+const hitWall = (a, b) => {
+    //Check for projectile hitting enemy
+    if (collision(a, b) && a instanceof Projectile) {
+        //console.log("hit")
+        toDraw.splice(toDraw.indexOf(a), 1)
+        if (a.damage > 0) b.health -= a.damage
+        return
     }
 }
 

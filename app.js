@@ -60,4 +60,8 @@ io.on('connection', socket => {
     socket.on("broadcast:player-shoot", bullet => {
         socket.broadcast.emit("player-shoot", bullet)
     })
+
+    socket.on("broadcast:player-heal", (player, heal) => {
+        socket.broadcast.emit("player-heal", player, heal)
+    })
 })
