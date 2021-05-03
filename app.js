@@ -45,8 +45,6 @@ io.on('connection', socket => {
         socket.emit("start-game")
     })
 
-
-
     socket.on('disconnect', () => {
         socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
         delete players[socket.id];
@@ -63,5 +61,9 @@ io.on('connection', socket => {
 
     socket.on("broadcast:player-heal", (player, heal) => {
         socket.broadcast.emit("player-heal", player, heal)
+    })
+
+    socket.on("broadcast:player-dead", player => {
+        socket.broadcast.emit("player-dead", player)
     })
 })

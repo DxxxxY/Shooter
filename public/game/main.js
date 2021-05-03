@@ -70,6 +70,14 @@ document.getElementById("join").addEventListener("click", e => {
         players[player.playerId].mana = 0
     })
 
+    socket.on("player-dead", player => {
+        if (players[socket.id] == players[player.playerId]) {
+            alive = false
+        } else {
+            delete players[player.playerId]
+        }
+    })
+
     socket.on("start-game", () => {
         document.addEventListener("keydown", keyboard)
         document.addEventListener("keydown", e => {
@@ -94,7 +102,7 @@ document.getElementById("join").addEventListener("click", e => {
             keyLength.splice(keyLength.indexOf(e.keyCode), 1)
             if (keyLength.length == 0) toKey = 0
         })
-        window.addEventListener("click", e => {
+        document.addEventListener("click", e => {
             let player = players[socket.id]
             if (e.button == 0) { //Shoot
                 let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player)
@@ -115,6 +123,7 @@ document.getElementById("join").addEventListener("click", e => {
 let pastX = 0
 let pastY = 0
 let lastDir = 40 //Default value (down)
+let alive = true
 
 const game = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -123,7 +132,7 @@ const game = () => {
     pastX = players[socket.id].x
     pastY = players[socket.id].y
     keyboard()
-    requestAnimationFrame(game)
+    if (alive) requestAnimationFrame(game)
 }
 
 var toKey = 0
@@ -261,6 +270,11 @@ const hitWall = (a, b) => {
     if (collision(a, b) && a instanceof Projectile) {
         //console.log("hit")
         toDraw.splice(toDraw.indexOf(a), 1)
+        if (a.damage > b.health) {
+            socket.emit("player-dead", b)
+            socket.emit("broadcast:player-dead", b)
+            return
+        }
         if (a.damage > 0) b.health -= a.damage
         return
     }
