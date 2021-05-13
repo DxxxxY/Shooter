@@ -34,6 +34,8 @@ const draw = () => {
         ctx.strokeRect(players[p].x - 2.5, players[p].y - 10, 40, 5)
         ctx.fillStyle = "cyan"
         ctx.fillRect(players[p].x - 2.5, players[p].y - 10, players[p].mana / 2.5, 5)
+            //Gem
+        ctx.fillText(players[p].gems, players[p].x - 2.5, players[p].y - 40)
     })
     toDraw.forEach(e => { e.draw() })
 }
@@ -70,12 +72,24 @@ document.getElementById("join").addEventListener("click", e => {
         players[player.playerId].mana = 0
     })
 
+    socket.on("spawn-gem", (x, y) => {
+        toDraw.push(new Gem(x, y))
+    })
+
+    socket.on("pickup-gem", (gem) => {
+        toDraw.splice(toDraw.indexOf(gem), 1)
+    })
+
     socket.on("player-dead", player => {
         if (players[socket.id] == players[player.playerId]) {
             alive = false
         } else {
             delete players[player.playerId]
         }
+    })
+
+    socket.on("waiting", count => {
+        console.log(count)
     })
 
     socket.on("start-game", () => {
@@ -177,6 +191,24 @@ const announce = (string, color) => {
     }, 5000)
 }
 
+//Gem object
+function Gem(x, y) {
+    this.x = x
+    this.y = y
+    this.w = 20
+    this.h = 20
+    this.collision = () => {
+        Object.keys(players).forEach(p => {
+            hitWall(this, players[p])
+        })
+    }
+    this.draw = () => {
+        ctx.fillStyle = "purple"
+        ctx.fillRect(this.x, this.y, this.w, this.h)
+        this.collision()
+    }
+}
+
 //Projectile object
 function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = "") {
     //Dimensions
@@ -276,6 +308,13 @@ const hitWall = (a, b) => {
             return
         }
         if (a.damage > 0) b.health -= a.damage
+        return
+    }
+    if (collision(a, b) && a instanceof Gem) {
+        console.log("logghed")
+        b.gems += 1
+        toDraw.splice(toDraw.indexOf(a), 1)
+        socket.emit("broadcast:pickup-gem", a)
         return
     }
 }

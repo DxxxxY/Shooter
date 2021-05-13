@@ -24,6 +24,19 @@ http.listen(port, () => {
 })
 
 const players = {}
+var start = false
+
+const getRandomInt = (min, max) => {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+const getPlayerCount = () => {
+    let i = 0
+    Object.keys(players).forEach(p => { i++ })
+    return i
+}
 
 io.on('connection', socket => {
     //console.log('User connected!')
@@ -37,15 +50,30 @@ io.on('connection', socket => {
             playerId: socket.id,
             name: name,
             health: 100,
-            mana: 0
+            mana: 0,
+            gems: 0
         };
-        //Test, first send updated players, then try to send 1 by 1 player
-        socket.emit('currentPlayers', players); //Send to new player
-        socket.broadcast.emit('player-join', players[socket.id] /* players*/ ); //Send to rest of players
-        socket.emit("start-game")
+        if (getPlayerCount() == 6) {
+            socket.emit('currentPlayers', players); //Send to new player
+            socket.broadcast.emit("currentPlayers", players)
+            socket.broadcast.emit('player-join', players[socket.id] /* players*/ ); //Send to rest of players
+            socket.emit("start-game")
+            socket.broadcast.emit("start-game")
+            setInterval(() => {
+                let x = getRandomInt(850, 950)
+                let y = getRandomInt(400, 500)
+                socket.emit("spawn-gem", x, y)
+                socket.broadcast.emit("spawn-gem", x, y)
+            }, 7500)
+            start = true
+        } else if (getPlayerCount() < 6) {
+            socket.emit("waiting", getPlayerCount())
+            socket.broadcast.emit("waiting", getPlayerCount())
+        }
     })
 
     socket.on('disconnect', () => {
+        if (!start) return
         socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
         delete players[socket.id];
         //console.log("User disconnected")
@@ -65,5 +93,9 @@ io.on('connection', socket => {
 
     socket.on("broadcast:player-dead", player => {
         socket.broadcast.emit("player-dead", player)
+    })
+
+    socket.on("broadcast:pickup-gem", gem => {
+        socket.broadcast.emit("pickup-gem", gem)
     })
 })
