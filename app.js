@@ -27,6 +27,8 @@ http.listen(port, () => {
 const players = {}
 var start = false
 var coords = []
+var cx = 0,
+    cy = 0
 coords.push(new Coords(50, 350))
 coords.push(new Coords(50, 450))
 coords.push(new Coords(50, 550))
@@ -56,11 +58,13 @@ io.on('connection', socket => {
     //console.log('User connected!')
     //var players = {socket.id: player}
     //var players = {key: value}
-    socket.on("player-create", name => {
+    socket.on("player-create", (name, canvasw, canvash) => {
         players[socket.id] = {
             rotation: 0,
             x: 0,
             y: 0,
+            w: 20,
+            h: 20,
             playerId: socket.id,
             name: name,
             health: 100,
@@ -68,6 +72,8 @@ io.on('connection', socket => {
             gems: 0,
             team: "none"
         };
+        cx = canvasw
+        cy = canvash
         if (getPlayerCount() == 6) {
             Object.keys(players).forEach(p => {
                 let coord = coords[Math.floor(Math.random() * coords.length)]
@@ -106,12 +112,22 @@ io.on('connection', socket => {
         //console.log("User disconnected")
     })
 
-    socket.on("broadcast:player-move", player => {
+    socket.on("player-move", toKey => {
+        let player = players[socket.id]
+        if (toKey == 37 && player.x > 0) player.x -= 5
+        if (toKey == 38 && player.y > 0) player.y -= 5
+        if (toKey == 39 && player.x < cx) player.x += 5
+        if (toKey == 40 && player.y < cy) player.y += 5
+        if (player.mana <= 99) player.mana += 1
+        socket.emit("player-move", player)
         socket.broadcast.emit("player-move", player)
     })
 
-    socket.on("broadcast:player-shoot", bullet => {
-        socket.broadcast.emit("player-shoot", bullet)
+    socket.on("player-shoot", lastDir => {
+        let player = players[socket.id]
+        let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player, lastDir)
+        socket.emit("player-shoot", bullet, false)
+        socket.broadcast.emit("player-shoot", bullet, false)
     })
 
     socket.on("broadcast:player-heal", (player, heal) => {
@@ -125,4 +141,97 @@ io.on('connection', socket => {
     socket.on("broadcast:pickup-gem", gem => {
         socket.broadcast.emit("pickup-gem", gem)
     })
+
+    socket.on("bullet-update", bullet => {
+        let uBullet = bullet.draw
+        socket.emit("bullet-update", uBullet)
+        socket.broadcast.emit("bullet-update", uBullet)
+    })
 })
+
+//Projectile object
+function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, lastDir, xory = "") {
+    //Dimensions
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+    this.color = color
+    this.dir = dir
+        //Attributes
+    this.damage = damage
+    this.speed = speed
+    this.slowed = false
+    this.enemy = enemy
+    this.owner = owner
+    this.lastDir = lastDir
+    this.xory = xory
+        //Execute when created =>
+    if (this.dir == "" && !this.enemy && this.xory == "") {
+        switch (getDir(lastDir)) {
+            case "left":
+                this.xory = "X"
+                this.speed = -this.speed
+                break
+            case "up":
+                this.xory = "Y"
+                this.speed = -this.speed
+                break
+            case "right":
+                this.xory = "X"
+                this.speed = +this.speed
+                break
+            case "down":
+                this.xory = "Y"
+                this.speed = +this.speed
+                break
+            default:
+                return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
+        }
+    }
+    this.collision = () => {
+        Object.keys(players).forEach(p => {
+            hitWall(this, players[p])
+        })
+    }
+    this.draw = () => {
+        ctx.fillStyle = this.color
+        ctx.fillRect(this.x, this.y, this.w, this.h)
+        if (this.xory === "Y") {
+            this.w = h
+            this.h = w
+            this.y += this.speed
+        }
+        if (this.xory === "X") {
+            this.w = this.w
+            this.h = this.h
+            this.x += this.speed
+        }
+        socket.emit("player-shoot", bullet, true)
+        socket.broadcast.emit("player-shoot", bullet, true)
+        this.collision()
+            //Optimization (remove projectiles when out of canvas)
+        if (this.x > canvas.width || this.y > canvas.height || this.x < 0 || this.y < 0) toDraw.splice(toDraw.indexOf(this), 1)
+    }
+}
+
+const getDir = (key) => {
+    let dir = ""
+    switch (key) {
+        case 37:
+            dir = "left"
+            break
+        case 38:
+            dir = "up"
+            break
+        case 39:
+            dir = "right"
+            break
+        case 40:
+            dir = "down"
+            break
+        default:
+            return console.log("Couldn't get getDir(lastDir)")
+    }
+    return dir
+}

@@ -42,7 +42,7 @@ const draw = () => {
 
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
-    socket.emit("player-create", document.getElementById("name").value)
+    socket.emit("player-create", document.getElementById("name").value, canvas.width, canvas.height)
 
     socket.on("currentPlayers", playerArray => {
         players = playerArray
@@ -50,21 +50,27 @@ document.getElementById("join").addEventListener("click", e => {
 
     socket.on("player-join", player => {
         players[player.playerId] = player
-        announce(`${player.name} has joined`, "green")
+            //announce(`${player.name} has joined`, "green")
     })
 
     socket.on("player-leave", player => {
         delete players[player.playerId]
-        announce(`${player.name} has left`, "red")
+            //announce(`${player.name} has left`, "red")
     })
 
     socket.on("player-move", player => {
         players[player.playerId] = player
-        if (players[player.playerId].mana <= 99) players[player.playerId].mana += 1
     })
 
-    socket.on("player-shoot", bullet => {
-        toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory))
+    socket.on("player-shoot", (bullet, update = false) => {
+        if (update) toDraw[bullet] = bullet
+        else toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory))
+    })
+
+    socket.on("bullet-update", bullet => {
+        console.log("logged")
+        console.log(toDraw, bullet)
+        toDraw[bullet] = bullet
     })
 
     socket.on("player-heal", (player, heal) => {
@@ -120,12 +126,12 @@ document.getElementById("join").addEventListener("click", e => {
             if (keyLength.length == 0) toKey = 0
         })
         document.addEventListener("click", e => {
-            let player = players[socket.id]
+            //let player = players[socket.id]
             if (e.button == 0) { //Shoot
-                let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player)
-                toDraw.push(bullet)
-                socket.emit("player-shoot", bullet)
-                socket.emit("broadcast:player-shoot", bullet)
+                //let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player)
+                //toDraw.push(bullet)
+                socket.emit("player-shoot", lastDir)
+                    //socket.emit("broadcast:player-shoot", bullet)
             }
             if (e.button == 2) { //Melee
 
@@ -155,20 +161,19 @@ const game = () => {
 var toKey = 0
 const keyLength = []
 const keyboard = () => {
-    let player = players[socket.id]
-    if (toKey == 37 /* && player.x > 0*/ ) player.x -= 5
-    if (toKey == 38 /* && player.y > 0*/ ) player.y -= 5
-    if (toKey == 39 /* && player.x < canvas.width - player.w*/ ) player.x += 5
-    if (toKey == 40 /* && player.y < canvas.height - player.h*/ ) player.y += 5
+    //let player = players[socket.id]
+    //if (toKey == 37 /* && player.x > 0*/ ) player.x -= 5
+    //if (toKey == 38 /* && player.y > 0*/ ) player.y -= 5
+    //if (toKey == 39 /* && player.x < canvas.width - player.w*/ ) player.x += 5
+    //if (toKey == 40 /* && player.y < canvas.height - player.h*/ ) player.y += 5
     if (toKey == 37 || toKey == 38 || toKey == 39 || toKey == 40) {
-        if (player.mana <= 99) player.mana += 1
-        socket.emit("player-move", player)
-        socket.emit("broadcast:player-move", player)
+        //if (player.mana <= 99) player.mana += 1
+        socket.emit("player-move", toKey)
     }
 }
 
 //Chat notifications kinda
-const announce = (string, color) => {
+/*const announce = (string, color) => {
     let para = document.createElement("p")
     let node = document.createTextNode(string)
     para.appendChild(node)
@@ -192,25 +197,7 @@ const announce = (string, color) => {
             })
         }, 150)
     }, 5000)
-}
-
-//Gem object
-function Gem(x, y) {
-    this.x = x
-    this.y = y
-    this.w = 20
-    this.h = 20
-    this.collision = () => {
-        Object.keys(players).forEach(p => {
-            hitWall(this, players[p])
-        })
-    }
-    this.draw = () => {
-        ctx.fillStyle = "purple"
-        ctx.fillRect(this.x, this.y, this.w, this.h)
-        this.collision()
-    }
-}
+}*/
 
 //Projectile object
 function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = "") {
@@ -228,72 +215,28 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = 
     this.enemy = enemy
     this.owner = owner
     this.xory = xory
-        //Execute when created =>
-    if (this.dir == "" && !this.enemy && this.xory == "") {
-        switch (getDir(lastDir)) {
-            case "left":
-                this.xory = "X"
-                this.speed = -this.speed
-                break
-            case "up":
-                this.xory = "Y"
-                this.speed = -this.speed
-                break
-            case "right":
-                this.xory = "X"
-                this.speed = +this.speed
-                break
-            case "down":
-                this.xory = "Y"
-                this.speed = +this.speed
-                break
-            default:
-                return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
-        }
+    this.draw = () => {
+        ctx.fillStyle = this.color
+        ctx.fillRect(this.x, this.y, this.w, this.h)
+        socket.emit("bullet-update", this)
     }
-    /*else {
-           switch (dir) {
-               case "left":
-                   xory = "X"
-                   this.speed = -this.speed
-                   break
-               case "up":
-                   xory = "Y"
-                   this.speed = -this.speed
-                   break
-               case "right":
-                   xory = "X"
-                   this.speed = +this.speed
-                   break
-               case "down":
-                   xory = "Y"
-                   this.speed = +this.speed
-                   break
-               default:
-                   return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
-           }
-       }*/
+}
+
+//Gem object
+function Gem(x, y) {
+    this.x = x
+    this.y = y
+    this.w = 20
+    this.h = 20
     this.collision = () => {
         Object.keys(players).forEach(p => {
             hitWall(this, players[p])
         })
     }
     this.draw = () => {
-        ctx.fillStyle = this.color
+        ctx.fillStyle = "purple"
         ctx.fillRect(this.x, this.y, this.w, this.h)
-        if (this.xory === "Y") {
-            this.w = h
-            this.h = w
-            this.y += this.speed
-        }
-        if (this.xory === "X") {
-            this.w = this.w
-            this.h = this.h
-            this.x += this.speed
-        }
         this.collision()
-            //Optimization (remove projectiles when out of canvas)
-        if (this.x > canvas.width || this.y > canvas.height || this.x < 0 || this.y < 0) toDraw.splice(toDraw.indexOf(this), 1)
     }
 }
 
@@ -319,26 +262,4 @@ const hitWall = (a, b) => {
         toDraw.splice(toDraw.indexOf(a), 1)
         return
     }
-}
-
-//Get getDir(lastDir) from last pressed key
-const getDir = (key) => {
-    let dir = ""
-    switch (key) {
-        case 37:
-            dir = "left"
-            break
-        case 38:
-            dir = "up"
-            break
-        case 39:
-            dir = "right"
-            break
-        case 40:
-            dir = "down"
-            break
-        default:
-            return console.log("Couldn't get getDir(lastDir)")
-    }
-    return dir
 }
