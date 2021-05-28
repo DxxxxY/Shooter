@@ -89,7 +89,10 @@ document.getElementById("join").addEventListener("click", e => {
     })
 
     socket.on("waiting", count => {
-        console.log(count)
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.font = "40px Arial";
+        ctx.fillStyle = "white"
+        ctx.fillText(`Waiting on players (${count}/6)`, canvas.width / 2 - 200, canvas.height / 2)
     })
 
     socket.on("start-game", () => {
@@ -311,10 +314,9 @@ const hitWall = (a, b) => {
         return
     }
     if (collision(a, b) && a instanceof Gem) {
-        console.log("logghed")
         b.gems += 1
-        toDraw.splice(toDraw.indexOf(a), 1)
         socket.emit("broadcast:pickup-gem", a)
+        toDraw.splice(toDraw.indexOf(a), 1)
         return
     }
 }

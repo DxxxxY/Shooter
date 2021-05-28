@@ -15,7 +15,8 @@ var port = process.env.PORT || 80
 app.get("/", (req, res) => { res.redirect("/game") })
 
 app.get("/game", (req, res) => {
-    res.sendFile(path.join(__dirname, "/public/game/game.html"))
+    if (start) res.send("The game has already started!")
+    else res.sendFile(path.join(__dirname, "/public/game/game.html"))
 })
 
 
@@ -25,6 +26,19 @@ http.listen(port, () => {
 
 const players = {}
 var start = false
+var coords = []
+coords.push(new Coords(50, 350))
+coords.push(new Coords(50, 450))
+coords.push(new Coords(50, 550))
+
+coords.push(new Coords(1700, 350))
+coords.push(new Coords(1700, 450))
+coords.push(new Coords(1700, 550))
+
+function Coords(x, y) {
+    this.x = x;
+    this.y = y;
+}
 
 const getRandomInt = (min, max) => {
     min = Math.ceil(min);
@@ -45,15 +59,23 @@ io.on('connection', socket => {
     socket.on("player-create", name => {
         players[socket.id] = {
             rotation: 0,
-            x: Math.floor(Math.random() * 700) + 50,
-            y: Math.floor(Math.random() * 500) + 50,
+            x: 0,
+            y: 0,
             playerId: socket.id,
             name: name,
             health: 100,
             mana: 0,
-            gems: 0
+            gems: 0,
+            team: "none"
         };
         if (getPlayerCount() == 6) {
+            Object.keys(players).forEach(p => {
+                let coord = coords[Math.floor(Math.random() * coords.length)]
+                players[p].x = coord.x
+                players[p].y = coord.y
+                coord.x == 100 ? players[p].team = "blue" : players[p].team = "red"
+                coords.splice(coords.indexOf(coord), 1)
+            })
             socket.emit('currentPlayers', players); //Send to new player
             socket.broadcast.emit("currentPlayers", players)
             socket.broadcast.emit('player-join', players[socket.id] /* players*/ ); //Send to rest of players
@@ -73,7 +95,12 @@ io.on('connection', socket => {
     })
 
     socket.on('disconnect', () => {
-        if (!start) return
+        if (!start) {
+            delete players[socket.id];
+            socket.emit("waiting", getPlayerCount())
+            socket.broadcast.emit("waiting", getPlayerCount())
+            return
+        }
         socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
         delete players[socket.id];
         //console.log("User disconnected")
