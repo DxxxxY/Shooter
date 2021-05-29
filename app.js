@@ -39,11 +39,20 @@ coords.push(new Coords(1700, 550))
 
 const bullets = []
 const gems = []
+const timers = []
 setInterval(() => {
     if (start) {
         bullets.forEach(e => e.draw())
         gems.forEach(e => e.draw())
-            //io.emit("player-shoot", bullets.map(b => ({ x: b.x, y: b.y, color: b.color })))
+        let blue = 0
+        let red = 0
+        Object.keys(players).forEach(p => {
+            if (players[p].team == "blue") blue += players[p].gems
+            else if (players[p].team == "red") red += players[p].gems
+        })
+        if (blue >= 10) timers.push(new Timer, "blue")
+        if (red >= 10) timers.push(new Timer, "red")
+        io.emit("timers", timers)
         io.emit("player-shoot", bullets)
         io.emit("gems", gems)
         io.emit("players", players)
@@ -58,9 +67,17 @@ const hitWall = (a, b) => {
     if (collision(a, b) && a instanceof Projectile) {
         //console.log("hit")
         if (b.health == 0) return
+        if (a.owner == b.team) return
         bullets.splice(bullets.indexOf(a), 1)
         if (a.damage >= b.health) {
             b.health = 0
+                //Drop held gems
+            if (b.gems != 0) {
+                for (var i = 0; i < b.gems; i++) {
+                    gems.push(new Gem(getRandomInt(b.x, b.x + 30), getRandomInt(b.y, b.y + 30)))
+                }
+            }
+            b.gems = 0
             setTimeout(() => {
                 b.health = 100
                 b.x = b.spawnx
@@ -82,6 +99,30 @@ const hitWall = (a, b) => {
 function Coords(x, y) {
     this.x = x;
     this.y = y;
+}
+
+function Timer(team) {
+    this.team = team
+    this.time = 10
+    this.timer = setInterval(() => {
+        time -= 1
+        if (time <= 0) {
+            let blue = 0
+            let red = 0
+            Object.keys(players).forEach(p => {
+                if (players[p].team == "blue") blue += players[p].gems
+                else if (players[p].team == "red") red += players[p].gems
+            })
+
+            if (blue >= 10 && team == "blue") {
+                //blue wins
+            } else { clearInterval(this.timer) }
+
+            if (red >= 10 && team == "red") {
+                //red wins
+            } else { clearInterval(this.timer) }
+        }
+    }, 1000)
 }
 
 const getRandomInt = (min, max) => {
@@ -125,7 +166,7 @@ io.on('connection', socket => {
                 players[p].y = coord.y
                 players[p].spawnx = coord.x
                 players[p].spawny = coord.y
-                coord.x == 100 ? players[p].team = "blue" : players[p].team = "red"
+                coord.x == 50 ? players[p].team = "blue" : players[p].team = "red"
                 coords.splice(coords.indexOf(coord), 1)
             })
             socket.emit('currentPlayers', players); //Send to new player
@@ -172,7 +213,7 @@ io.on('connection', socket => {
     socket.on("player-shoot", lastDir => {
         let player = players[socket.id]
         if (player.health == 0) return
-        let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player, lastDir)
+        let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player.team, lastDir)
         bullets.push(bullet)
     })
 

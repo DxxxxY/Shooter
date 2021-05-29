@@ -16,6 +16,8 @@ document.body.appendChild(canvas)
 
 document.addEventListener('contextmenu', e => e.preventDefault())
 const draw = () => {
+    let blue = 0
+    let red = 0
     Object.keys(players).forEach(p => {
         //Player
         if (!players[p].health == 0) {
@@ -36,8 +38,20 @@ const draw = () => {
             ctx.fillRect(players[p].x - 2.5, players[p].y - 10, players[p].mana / 2.5, 5)
                 //Gem
             ctx.fillText(players[p].gems, players[p].x - 2.5, players[p].y - 40)
+            if (players[p].team == "blue") blue += players[p].gems
+            else if (players[p].team == "red") red += players[p].gems
         }
     })
+    ctx.font = "48px Arial";
+    ctx.strokeStyle = "white"
+
+    ctx.fillStyle = "blue"
+    ctx.fillText(`${blue}/10`, 20, 40)
+    ctx.strokeText(`${blue}/10`, 20, 40)
+
+    ctx.fillStyle = "red"
+    ctx.fillText(`${red}/10`, canvas.width - 96, 40)
+    ctx.strokeText(`${red}/10`, canvas.width - 96, 40)
     toDraw.forEach(e => { e.draw() })
 }
 
@@ -47,7 +61,6 @@ var gemsA = []
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
     socket.emit("player-create", document.getElementById("name").value, canvas.width, canvas.height)
-
     socket.on("currentPlayers", playerArray => {
         players = playerArray
     })
@@ -111,7 +124,6 @@ document.getElementById("join").addEventListener("click", e => {
         })
         game()
     })
-
 })
 
 //Define past positions
@@ -134,7 +146,6 @@ const game = () => {
     gemsA.forEach(gem => {
         new Gem(gem.x, gem.y).draw()
     })
-
 }
 
 var toKey = 0
@@ -169,6 +180,7 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = 
 
 var gem = new Image();
 gem.src = 'gem.png';
+
 //Gem object
 function Gem(x, y) {
     this.x = x
