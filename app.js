@@ -42,11 +42,42 @@ const gems = []
 setInterval(() => {
     if (start) {
         bullets.forEach(e => e.draw())
+        gems.forEach(e => e.draw())
             //io.emit("player-shoot", bullets.map(b => ({ x: b.x, y: b.y, color: b.color })))
         io.emit("player-shoot", bullets)
         io.emit("gems", gems)
+        io.emit("players", players)
     }
 }, 1000 / 60)
+
+//Collision rect to rect
+const collision = (a, b) => { if (a.x + a.w > b.x && a.x < b.x + b.w && a.y < b.y + b.h && a.y + a.h > b.y) return true }
+
+const hitWall = (a, b) => {
+    //Check for projectile hitting enemy
+    if (collision(a, b) && a instanceof Projectile) {
+        //console.log("hit")
+        if (b.health == 0) return
+        bullets.splice(bullets.indexOf(a), 1)
+        if (a.damage >= b.health) {
+            b.health = 0
+            setTimeout(() => {
+                b.health = 100
+                b.x = b.spawnx
+                b.y = b.spawny
+            }, 3000)
+            return
+        }
+        if (a.damage > 0) b.health -= a.damage
+        return
+    }
+    if (collision(a, b) && a instanceof Gem) {
+        if (b.health == 0) return
+        b.gems += 1
+        gems.splice(gems.indexOf(a), 1)
+        return
+    }
+}
 
 function Coords(x, y) {
     this.x = x;
@@ -66,7 +97,6 @@ const getPlayerCount = () => {
 }
 
 io.on('connection', socket => {
-
     //console.log('User connected!')
     //var players = {socket.id: player}
     //var players = {key: value}
@@ -82,7 +112,9 @@ io.on('connection', socket => {
             health: 100,
             mana: 0,
             gems: 0,
-            team: "none"
+            team: "none",
+            spawnx: 0,
+            spawny: 0
         };
         cx = canvasw
         cy = canvash
@@ -91,6 +123,8 @@ io.on('connection', socket => {
                 let coord = coords[Math.floor(Math.random() * coords.length)]
                 players[p].x = coord.x
                 players[p].y = coord.y
+                players[p].spawnx = coord.x
+                players[p].spawny = coord.y
                 coord.x == 100 ? players[p].team = "blue" : players[p].team = "red"
                 coords.splice(coords.indexOf(coord), 1)
             })
@@ -125,23 +159,26 @@ io.on('connection', socket => {
 
     socket.on("player-move", toKey => {
         let player = players[socket.id]
+        if (player.health == 0) return
         if (toKey == 37 && player.x > 0) player.x -= 5
         if (toKey == 38 && player.y > 0) player.y -= 5
-        if (toKey == 39 && player.x < cx) player.x += 5
-        if (toKey == 40 && player.y < cy) player.y += 5
+        if (toKey == 39 && player.x < cx + player.w) player.x += 5
+        if (toKey == 40 && player.y < cy + player.h) player.y += 5
         if (player.mana <= 99) player.mana += 1
-        socket.emit("player-move", player)
-        socket.broadcast.emit("player-move", player)
+            //socket.emit("player-move", player)
+            //socket.broadcast.emit("player-move", player)
     })
 
     socket.on("player-shoot", lastDir => {
         let player = players[socket.id]
+        if (player.health == 0) return
         let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player, lastDir)
         bullets.push(bullet)
     })
 
     socket.on("player-heal", () => {
         let player = players[socket.id]
+        if (player.health == 0) return
         if (player.mana >= 100) {
             player.mana = 0
             if (player.health >= 75) player.health = 100
@@ -149,10 +186,6 @@ io.on('connection', socket => {
             socket.emit("player-heal", player)
             socket.broadcast.emit("player-heal", player)
         }
-    })
-
-    socket.on("broadcast:player-dead", player => {
-        socket.broadcast.emit("player-dead", player)
     })
 })
 
@@ -196,6 +229,11 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, lastDir
                 return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
         }
     }
+    this.collision = () => {
+        Object.keys(players).forEach(p => {
+            hitWall(this, players[p])
+        })
+    }
     this.draw = () => {
         if (this.xory === "Y") {
             this.w = h
@@ -207,6 +245,9 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, lastDir
             this.h = this.h
             this.x += this.speed
         }
+        this.collision()
+            //Optimization (remove projectiles when out of canvas)
+        if (this.x > cx || this.y > cy || this.x < 0 || this.y < 0) bullets.splice(bullets.indexOf(this), 1)
     }
 }
 
@@ -215,9 +256,13 @@ function Gem(x, y) {
     this.y = y
     this.w = 20
     this.h = 20
+    this.collision = () => {
+        Object.keys(players).forEach(p => {
+            hitWall(this, players[p])
+        })
+    }
     this.draw = () => {
-        ctx.fillStyle = "purple"
-        ctx.fillRect(this.x, this.y, this.w, this.h)
+        this.collision()
     }
 }
 
