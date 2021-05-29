@@ -5,6 +5,9 @@
     "main": "app.js",
     "keywords": [],
     "author": "",
+    "scripts": {
+        "start": "node ."
+    },
     "license": "ISC",
     "dependencies": {
         "body-parser": "^1.19.0",

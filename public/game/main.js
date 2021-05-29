@@ -52,11 +52,33 @@ const draw = () => {
     ctx.fillStyle = "red"
     ctx.fillText(`${red}/10`, canvas.width - 96, 40)
     ctx.strokeText(`${red}/10`, canvas.width - 96, 40)
+
+    if (timerTeam != undefined) {
+        ctx.font = "48px Arial";
+        ctx.strokeStyle = "white"
+
+        if (timerTeam == "blue") {
+            ctx.fillStyle = "blue"
+            ctx.fillText(timerTime, 20, 80)
+            ctx.strokeText(timerTime, 20, 80)
+        }
+
+        if (timerTeam == "red") {
+            ctx.fillStyle = "red"
+            ctx.fillText(timerTime, canvas.width - 96, 80)
+            ctx.strokeText(timerTime, canvas.width - 96, 80)
+        }
+    }
     toDraw.forEach(e => { e.draw() })
+
+
 }
 
 var bulletsA = []
 var gemsA = []
+var timerTeam = undefined
+var timerTime = undefined
+var winText
 
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
@@ -91,6 +113,26 @@ document.getElementById("join").addEventListener("click", e => {
 
     socket.on("gems", gems => {
         gemsA = gems
+    })
+
+    socket.on("gameover", winTeam => {
+        if (players[socket.id].team == winTeam) {
+            winText = "Your team has won! :)"
+        } else if (players[socket.id].team != winTeam) {
+            winText = "Your team has lost! :("
+        }
+        end = true
+        ctx.font = "48px Arial";
+        ctx.strokeStyle = "white"
+        ctx.strokeText(winText, canvas.width / 2, canvas.height / 2)
+        setTimeout(() => {
+            location.reload();
+        }, 4000)
+    })
+
+    socket.on("timer", (team, time) => {
+        timerTeam = team
+        timerTime = time
     })
 
     socket.on("waiting", count => {
@@ -130,22 +172,26 @@ document.getElementById("join").addEventListener("click", e => {
 let pastX = 0
 let pastY = 0
 let lastDir = 40 //Default value (down)
+let end = false
 
 const game = () => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    draw()
-    pastX = players[socket.id].x
-    pastY = players[socket.id].y
-    keyboard()
-        //Draw bullets and gems coming from server
-    requestAnimationFrame(game)
-    bulletsA.forEach(bullet => {
-        new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory).draw()
-    })
-    gemsA.forEach(gem => {
-        new Gem(gem.x, gem.y).draw()
-    })
+    if (!end) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        draw()
+        pastX = players[socket.id].x
+        pastY = players[socket.id].y
+        keyboard()
+            //Draw bullets and gems coming from server
+
+        requestAnimationFrame(game)
+        bulletsA.forEach(bullet => {
+            new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory).draw()
+        })
+        gemsA.forEach(gem => {
+            new Gem(gem.x, gem.y).draw()
+        })
+    }
 }
 
 var toKey = 0
