@@ -15,7 +15,6 @@ canvas.style.margin = "auto"
 document.body.appendChild(canvas)
 
 document.addEventListener('contextmenu', e => e.preventDefault())
-
 const draw = () => {
     Object.keys(players).forEach(p => {
         //Player
@@ -40,6 +39,8 @@ const draw = () => {
     toDraw.forEach(e => { e.draw() })
 }
 
+var bulletsA = []
+
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
     socket.emit("player-create", document.getElementById("name").value, canvas.width, canvas.height)
@@ -62,28 +63,18 @@ document.getElementById("join").addEventListener("click", e => {
         players[player.playerId] = player
     })
 
-    socket.on("player-shoot", (bullet, update = false) => {
-        if (update) toDraw[bullet] = bullet
-        else toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory))
+    socket.on("player-shoot", bullets => {
+        // if (update) toDraw[bullet] = bullet
+        // else toDraw.push(new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory))
+        bulletsA = bullets
     })
 
-    socket.on("bullet-update", bullet => {
-        console.log("logged")
-        console.log(toDraw, bullet)
-        toDraw[bullet] = bullet
+    socket.on("player-heal", player => {
+        players[player.playerId] = player
     })
 
-    socket.on("player-heal", (player, heal) => {
-        players[player.playerId].health += heal
-        players[player.playerId].mana = 0
-    })
-
-    socket.on("spawn-gem", (x, y) => {
-        toDraw.push(new Gem(x, y))
-    })
-
-    socket.on("pickup-gem", (gem) => {
-        toDraw.splice(toDraw.indexOf(gem), 1)
+    socket.on("gems", gems => {
+        gemsA = gems
     })
 
     socket.on("player-dead", player => {
@@ -110,15 +101,9 @@ document.getElementById("join").addEventListener("click", e => {
         })
         document.addEventListener("keypress", e => {
             if (e.keyCode === 32) {
-                let player = players[socket.id]
-                    //Regen 25% of hp
-                if (player.mana >= 100) {
-                    player.mana = 0
-                    if (player.health >= 75) player.health = 100
-                    else player.health += 25
-                    socket.emit("player-heal", player, 25)
-                    socket.emit("broadcast:player-heal", player, 25)
-                }
+                //let player = players[socket.id]
+                //Regen 25% of hp
+                socket.emit("player-heal")
             }
         })
         document.addEventListener("keyup", e => {
@@ -152,52 +137,28 @@ const game = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     draw()
+
     pastX = players[socket.id].x
     pastY = players[socket.id].y
     keyboard()
-    if (alive) requestAnimationFrame(game)
+    if (alive) {
+        requestAnimationFrame(game)
+        bulletsA.forEach(bullet => {
+            new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory).draw()
+        })
+        gemsA.forEach(gem => {
+            new Gem(gem.x, gem.y).draw()
+        })
+    }
 }
 
 var toKey = 0
 const keyLength = []
 const keyboard = () => {
-    //let player = players[socket.id]
-    //if (toKey == 37 /* && player.x > 0*/ ) player.x -= 5
-    //if (toKey == 38 /* && player.y > 0*/ ) player.y -= 5
-    //if (toKey == 39 /* && player.x < canvas.width - player.w*/ ) player.x += 5
-    //if (toKey == 40 /* && player.y < canvas.height - player.h*/ ) player.y += 5
     if (toKey == 37 || toKey == 38 || toKey == 39 || toKey == 40) {
-        //if (player.mana <= 99) player.mana += 1
         socket.emit("player-move", toKey)
     }
 }
-
-//Chat notifications kinda
-/*const announce = (string, color) => {
-    let para = document.createElement("p")
-    let node = document.createTextNode(string)
-    para.appendChild(node)
-    para.style.color = color
-    para.style.fontFamily = "Poppins, sans-serif"
-    para.style.fontSize = "1vw"
-    para.style.position = "absolute"
-    para.style.right = "2vw"
-    para.style.top = `${1 + (2 * notifs.length)}vh`
-    document.body.appendChild(para)
-    notifs.push(para)
-    setTimeout(() => {
-        notifs.splice(notifs.indexOf(para), 1)
-        para.style.transition = "0.15s ease-in"
-        para.style.top = `${+para.style.top.replace(/\D/g,'') - 2}vh`
-        setTimeout(() => {
-            para.remove()
-            notifs.forEach(e => {
-                e.style.transition = "0.15s ease-in"
-                e.style.top = `${+e.style.top.replace(/\D/g,'') - 2}vh`
-            })
-        }, 150)
-    }, 5000)
-}*/
 
 //Projectile object
 function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = "") {
@@ -218,25 +179,19 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = 
     this.draw = () => {
         ctx.fillStyle = this.color
         ctx.fillRect(this.x, this.y, this.w, this.h)
-        socket.emit("bullet-update", this)
     }
 }
 
+var gem = new Image();
+gem.src = 'gem.png';
 //Gem object
 function Gem(x, y) {
     this.x = x
     this.y = y
-    this.w = 20
-    this.h = 20
-    this.collision = () => {
-        Object.keys(players).forEach(p => {
-            hitWall(this, players[p])
-        })
-    }
+    this.w = 40
+    this.h = 40
     this.draw = () => {
-        ctx.fillStyle = "purple"
-        ctx.fillRect(this.x, this.y, this.w, this.h)
-        this.collision()
+        ctx.drawImage(gem, this.x, this.y, this.w, this.h)
     }
 }
 

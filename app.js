@@ -37,6 +37,17 @@ coords.push(new Coords(1700, 350))
 coords.push(new Coords(1700, 450))
 coords.push(new Coords(1700, 550))
 
+const bullets = []
+const gems = []
+setInterval(() => {
+    if (start) {
+        bullets.forEach(e => e.draw())
+            //io.emit("player-shoot", bullets.map(b => ({ x: b.x, y: b.y, color: b.color })))
+        io.emit("player-shoot", bullets)
+        io.emit("gems", gems)
+    }
+}, 1000 / 60)
+
 function Coords(x, y) {
     this.x = x;
     this.y = y;
@@ -55,6 +66,7 @@ const getPlayerCount = () => {
 }
 
 io.on('connection', socket => {
+
     //console.log('User connected!')
     //var players = {socket.id: player}
     //var players = {key: value}
@@ -90,8 +102,7 @@ io.on('connection', socket => {
             setInterval(() => {
                 let x = getRandomInt(850, 950)
                 let y = getRandomInt(400, 500)
-                socket.emit("spawn-gem", x, y)
-                socket.broadcast.emit("spawn-gem", x, y)
+                gems.push(new Gem(x, y))
             }, 7500)
             start = true
         } else if (getPlayerCount() < 6) {
@@ -109,7 +120,7 @@ io.on('connection', socket => {
         }
         socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
         delete players[socket.id];
-        //console.log("User disconnected")
+        // console.log("User disconnected")
     })
 
     socket.on("player-move", toKey => {
@@ -126,26 +137,22 @@ io.on('connection', socket => {
     socket.on("player-shoot", lastDir => {
         let player = players[socket.id]
         let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player, lastDir)
-        socket.emit("player-shoot", bullet, false)
-        socket.broadcast.emit("player-shoot", bullet, false)
+        bullets.push(bullet)
     })
 
-    socket.on("broadcast:player-heal", (player, heal) => {
-        socket.broadcast.emit("player-heal", player, heal)
+    socket.on("player-heal", () => {
+        let player = players[socket.id]
+        if (player.mana >= 100) {
+            player.mana = 0
+            if (player.health >= 75) player.health = 100
+            else player.health += 25
+            socket.emit("player-heal", player)
+            socket.broadcast.emit("player-heal", player)
+        }
     })
 
     socket.on("broadcast:player-dead", player => {
         socket.broadcast.emit("player-dead", player)
-    })
-
-    socket.on("broadcast:pickup-gem", gem => {
-        socket.broadcast.emit("pickup-gem", gem)
-    })
-
-    socket.on("bullet-update", bullet => {
-        let uBullet = bullet.draw
-        socket.emit("bullet-update", uBullet)
-        socket.broadcast.emit("bullet-update", uBullet)
     })
 })
 
@@ -189,14 +196,7 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, lastDir
                 return console.log("Couldn't get getDir(lastDir) (Projectile constructor)")
         }
     }
-    this.collision = () => {
-        Object.keys(players).forEach(p => {
-            hitWall(this, players[p])
-        })
-    }
     this.draw = () => {
-        ctx.fillStyle = this.color
-        ctx.fillRect(this.x, this.y, this.w, this.h)
         if (this.xory === "Y") {
             this.w = h
             this.h = w
@@ -207,11 +207,17 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, lastDir
             this.h = this.h
             this.x += this.speed
         }
-        socket.emit("player-shoot", bullet, true)
-        socket.broadcast.emit("player-shoot", bullet, true)
-        this.collision()
-            //Optimization (remove projectiles when out of canvas)
-        if (this.x > canvas.width || this.y > canvas.height || this.x < 0 || this.y < 0) toDraw.splice(toDraw.indexOf(this), 1)
+    }
+}
+
+function Gem(x, y) {
+    this.x = x
+    this.y = y
+    this.w = 20
+    this.h = 20
+    this.draw = () => {
+        ctx.fillStyle = "purple"
+        ctx.fillRect(this.x, this.y, this.w, this.h)
     }
 }
 
