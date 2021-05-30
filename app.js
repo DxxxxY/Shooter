@@ -11,16 +11,18 @@ const wrapper = () => {
 
     var port = process.env.PORT || 80
 
-    app.get("/", (req, res) => { res.redirect("/game") })
+    app.get("/", (req, res) => { res.redirect("/rules") })
+
+    app.get("/rules", (req, res) => { res.sendFile(path.join(__dirname, "/public/rules/rules.html")) })
+
+    app.post("/rules", (req, res) => { res.redirect("/game") })
 
     app.get("/game", (req, res) => {
         if (start) res.send("The game has already started!")
         else res.sendFile(path.join(__dirname, "/public/game/game.html"))
     })
 
-    http.listen(port, () => {
-        console.log(`Listening on port ${port}`)
-    })
+    http.listen(port, () => { console.log(`Listening on port ${port}`) })
 
     const players = {}
     var start = false
@@ -84,7 +86,7 @@ const wrapper = () => {
                     //Drop held gems
                 if (b.gems != 0) {
                     for (var i = 0; i < b.gems; i++) {
-                        gems.push(new Gem(getRandomInt(b.x, b.x + 30), getRandomInt(b.y, b.y + 30)))
+                        gems.push(new Gem(getRandomInt(b.x, b.x + 50), getRandomInt(b.y, b.y + 50)))
                     }
                 }
                 b.gems = 0
@@ -222,7 +224,7 @@ const wrapper = () => {
                     let x = getRandomInt(850, 950)
                     let y = getRandomInt(400, 500)
                     gems.push(new Gem(x, y))
-                }, 500)
+                }, 4000)
                 start = true
             } else if (getPlayerCount() < 6) {
                 socket.emit("waiting", getPlayerCount())
