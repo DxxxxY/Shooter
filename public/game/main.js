@@ -1,9 +1,49 @@
+//Socket initialization
 const socket = io()
 
+//Variables
 var players = {}
 var notifs = []
-var toDraw = []
+var bulletsA = []
+var gemsA = []
+var timerTeam = undefined
+var timerTime = undefined
+var winText
+var toKey = 0
+var keyLength = []
 
+//Define past positions
+let pastX = 0
+let pastY = 0
+let lastDir = 40 //Default value (down)
+let end = false
+
+//Textures
+var gem = new Image();
+gem.src = 'textures/gem.png';
+
+//Sounds
+var damage = new Audio()
+damage.src = "sounds/damage.wav"
+damage.volume = 0.3
+var death = new Audio()
+death.src = "sounds/death.wav"
+death.volume = 0.3
+var heal = new Audio()
+heal.src = "sounds/heal.wav"
+heal.volume = 0.3
+var pickup = new Audio()
+pickup.src = "sounds/pickup.wav"
+pickup.volume = 0.3
+var shoot = new Audio()
+shoot.src = "sounds/shoot.wav"
+shoot.volume = 0.3
+var theme = new Audio()
+theme.src = "sounds/theme.mp3"
+theme.volume = 0.3
+theme.loop = true
+
+//Canvas creation
 const canvas = document.createElement("canvas")
 const ctx = canvas.getContext("2d")
 canvas.width = window.innerWidth - 50
@@ -44,123 +84,61 @@ const draw = () => {
     })
     ctx.font = "48px Arial";
     ctx.strokeStyle = "white"
-
+        //Blue score
     ctx.fillStyle = "blue"
     ctx.fillText(`${blue}/10`, 20, 40)
     ctx.strokeText(`${blue}/10`, 20, 40)
-
+        //Red score
     ctx.fillStyle = "red"
-    ctx.fillText(`${red}/10`, canvas.width - 96, 40)
-    ctx.strokeText(`${red}/10`, canvas.width - 96, 40)
-
+    ctx.fillText(`${red}/10`, canvas.width - 104, 40)
+    ctx.strokeText(`${red}/10`, canvas.width - 104, 40)
+        //Timers
     if (timerTeam != undefined) {
         ctx.font = "48px Arial";
         ctx.strokeStyle = "white"
-
+            //Blue timer
         if (timerTeam == "blue") {
             ctx.fillStyle = "blue"
             ctx.fillText(timerTime, 20, 80)
             ctx.strokeText(timerTime, 20, 80)
         }
-
+        //Red timer
         if (timerTeam == "red") {
             ctx.fillStyle = "red"
             ctx.fillText(timerTime, canvas.width - 96, 80)
             ctx.strokeText(timerTime, canvas.width - 96, 80)
         }
     }
-    toDraw.forEach(e => { e.draw() })
-
-
 }
 
-var bulletsA = []
-var gemsA = []
-var timerTeam = undefined
-var timerTime = undefined
-var winText
-
+//On join game
 document.getElementById("join").addEventListener("click", e => {
     document.getElementById("container").style.display = "none"
     socket.emit("player-create", document.getElementById("name").value, canvas.width, canvas.height)
-    socket.on("currentPlayers", playerArray => {
-        players = playerArray
-    })
+        //Player events
+    socket.on("currentPlayers", playerArray => { players = playerArray })
+    socket.on("player-join", player => { players[player.playerId] = player })
+    socket.on("player-leave", player => { delete players[player.playerId] })
+    socket.on("players", playersA => { players = playersA })
+    socket.on("player-move", player => { players[player.playerId] = player })
+    socket.on("player-shoot", bullets => { bulletsA = bullets })
+    socket.on("gems", gems => { gemsA = gems })
 
-    socket.on("player-join", player => {
-        players[player.playerId] = player
-    })
-
-    socket.on("player-leave", player => {
-        delete players[player.playerId]
-    })
-
-    socket.on("players", playersA => {
-        players = playersA
-    })
-
-    socket.on("player-move", player => {
-        players[player.playerId] = player
-    })
-
-    socket.on("player-shoot", bullets => {
-        bulletsA = bullets
-    })
-
-    socket.on("gems", gems => {
-        gemsA = gems
-    })
-
-    //Sounds
-    var damage = new Audio()
-    damage.src = "sounds/damage.wav"
-    damage.volume = 0.3
-    socket.on("sound-damage", () => {
-        damage.play()
-    })
-
-    var death = new Audio()
-    death.src = "sounds/death.wav"
-    death.volume = 0.3
-    socket.on("sound-death", () => {
-        death.play()
-    })
-
-    var heal = new Audio()
-    heal.src = "sounds/heal.wav"
-    heal.volume = 0.3
-    socket.on("sound-heal", () => {
-        heal.play()
-    })
-
-    var pickup = new Audio()
-    pickup.src = "sounds/pickup.wav"
-    pickup.volume = 0.3
-    socket.on("sound-pickup", () => {
-        pickup.play()
-    })
-
-    var shoot = new Audio()
-    shoot.src = "sounds/shoot.wav"
-    shoot.volume = 0.3
-    socket.on("sound-shoot", () => {
-        shoot.play()
-    })
-
+    //Sound events
+    socket.on("sound-damage", () => { damage.play() })
+    socket.on("sound-death", () => { death.play() })
+    socket.on("sound-heal", () => { heal.play() })
+    socket.on("sound-pickup", () => { pickup.play() })
+    socket.on("sound-shoot", () => { shoot.play() })
 
     socket.on("gameover", winTeam => {
-        if (players[socket.id].team == winTeam) {
-            winText = "Your team has won! :)"
-        } else if (players[socket.id].team != winTeam) {
-            winText = "Your team has lost! :("
-        }
+        if (players[socket.id].team == winTeam) winText = "Your team has won! :)"
+        else if (players[socket.id].team != winTeam) winText = "Your team has lost! :("
         end = true
         ctx.font = "48px Arial";
         ctx.strokeStyle = "white"
         ctx.strokeText(winText, canvas.width / 2, canvas.height / 2)
-        setTimeout(() => {
-            location.reload();
-        }, 4000)
+        setTimeout(location.reload(), 4000)
     })
 
     socket.on("timer", (team, time) => {
@@ -182,36 +160,18 @@ document.getElementById("join").addEventListener("click", e => {
             toKey = e.keyCode
             if (e.keyCode === 37 || e.keyCode === 38 || e.keyCode === 39 || e.keyCode === 40) lastDir = e.keyCode
         })
-        document.addEventListener("keypress", e => {
-            if (e.keyCode === 32) {
-                //Regen 25% of hp
-                socket.emit("player-heal")
-            }
-        })
+        document.addEventListener("keypress", e => { if (e.keyCode === 32) socket.emit("player-heal") })
         document.addEventListener("keyup", e => {
             keyLength.splice(keyLength.indexOf(e.keyCode), 1)
             if (keyLength.length == 0) toKey = 0
         })
-        document.addEventListener("click", e => {
-            if (e.button == 0) { //Shoot
-                socket.emit("player-shoot", lastDir)
-            }
-        })
-        var theme = new Audio()
-        theme.src = "sounds/theme.mp3"
-        theme.volume = 0.3
+        document.addEventListener("click", e => { if (e.button == 0) socket.emit("player-shoot", lastDir) })
         theme.play()
-        theme.loop = true
         game()
     })
 })
 
-//Define past positions
-let pastX = 0
-let pastY = 0
-let lastDir = 40 //Default value (down)
-let end = false
-
+//Game loop
 const game = () => {
     if (!end) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -220,8 +180,6 @@ const game = () => {
         pastX = players[socket.id].x
         pastY = players[socket.id].y
         keyboard()
-            //Draw bullets and gems coming from server
-
         requestAnimationFrame(game)
         bulletsA.forEach(bullet => {
             new Projectile(bullet.x, bullet.y, bullet.w, bullet.h, bullet.color, bullet.damage, bullet.speed, bullet.dir, true, bullet.owner, bullet.xory).draw()
@@ -232,13 +190,8 @@ const game = () => {
     }
 }
 
-var toKey = 0
-const keyLength = []
-const keyboard = () => {
-    if (toKey == 37 || toKey == 38 || toKey == 39 || toKey == 40) {
-        socket.emit("player-move", toKey)
-    }
-}
+//Keyboard
+const keyboard = () => { if (toKey == 37 || toKey == 38 || toKey == 39 || toKey == 40) { socket.emit("player-move", toKey) } }
 
 //Projectile object
 function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = "") {
@@ -262,16 +215,12 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = 
     }
 }
 
-var gem = new Image();
-gem.src = 'textures/gem.png';
-
 //Gem object
 function Gem(x, y) {
+    //Dimensions
     this.x = x
     this.y = y
     this.w = 40
     this.h = 40
-    this.draw = () => {
-        ctx.drawImage(gem, this.x, this.y, this.w, this.h)
-    }
+    this.draw = () => { ctx.drawImage(gem, this.x, this.y, this.w, this.h) }
 }

@@ -1,13 +1,11 @@
-const mcdoanldwrap = () => {
+//Server wrapper
+const wrapper = () => {
+    //Imports
     const express = require("express")
     const app = require('express')()
     const http = require('http').createServer(app)
     const path = require('path')
     const io = require('socket.io')(http)
-    const bodyParser = require("body-parser")
-
-    app.use(bodyParser.json())
-    app.use(bodyParser.urlencoded({ extended: true }))
 
     app.use(express.static("public"));
 
@@ -40,9 +38,10 @@ const mcdoanldwrap = () => {
     const bullets = []
     const gems = []
     var timer = undefined
+
+    //Server game loop
     setInterval(() => {
         if (start) {
-            ////io.emit("player-shoot", bullets.map(b => ({ x: b.x, y: b.y, color: b.color })))
             bullets.forEach(e => e.draw())
             gems.forEach(e => e.draw())
             let blue = 0
@@ -62,13 +61,8 @@ const mcdoanldwrap = () => {
                     timer.timer
                 }
             }
-            if (timer != undefined) {
-                //console.log(timer.team, timer.time)
-                io.emit("timer", timer.team, timer.time)
-            } else if (timer == undefined) {
-                io.emit("timer", undefined, undefined)
-            }
-
+            if (timer != undefined) io.emit("timer", timer.team, timer.time)
+            else if (timer == undefined) io.emit("timer", undefined, undefined)
             io.emit("player-shoot", bullets)
             io.emit("gems", gems)
             io.emit("players", players)
@@ -81,7 +75,6 @@ const mcdoanldwrap = () => {
     const hitWall = (a, b) => {
         //Check for projectile hitting enemy
         if (collision(a, b) && a instanceof Projectile) {
-            //console.log("hit")
             if (b.health == 0) return
             if (a.owner == b.team) return
             bullets.splice(bullets.indexOf(a), 1)
@@ -115,11 +108,13 @@ const mcdoanldwrap = () => {
         }
     }
 
+    //Coords object
     function Coords(x, y) {
         this.x = x;
         this.y = y;
     }
 
+    //Timer object
     function Timer(team) {
         this.team = team
         this.time = 10
@@ -153,10 +148,9 @@ const mcdoanldwrap = () => {
                 })
 
                 if (blue >= 10 && team == "blue") {
-                    console.log("blue wins")
                     io.emit("gameover", "blue")
                     http.close()
-                    mcdoanldwrap()
+                    wrapper()
                 } else {
                     clearInterval(this.timer)
                     timer = undefined
@@ -164,10 +158,9 @@ const mcdoanldwrap = () => {
                 }
 
                 if (red >= 10 && team == "red") {
-                    console.log("red wins")
                     io.emit("gameover", "red")
                     http.close()
-                    mcdoanldwrap()
+                    wrapper()
                 } else {
                     clearInterval(this.timer)
                     timer = undefined
@@ -177,12 +170,14 @@ const mcdoanldwrap = () => {
         }, 1000)
     }
 
+    //Random int generator
     const getRandomInt = (min, max) => {
         min = Math.ceil(min);
         max = Math.floor(max);
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    //Get player count
     const getPlayerCount = () => {
         let i = 0
         Object.keys(players).forEach(p => { i++ })
@@ -190,9 +185,6 @@ const mcdoanldwrap = () => {
     }
 
     io.on('connection', socket => {
-        //console.log('User connected!')
-        //var players = {socket.id: player}
-        //var players = {key: value}
         socket.on("player-create", (name, canvasw, canvash) => {
             players[socket.id] = {
                 rotation: 0,
@@ -245,9 +237,8 @@ const mcdoanldwrap = () => {
                 socket.broadcast.emit("waiting", getPlayerCount())
                 return
             }
-            socket.broadcast.emit("player-leave", players[socket.id] /*players*/ )
+            socket.broadcast.emit("player-leave", players[socket.id])
             delete players[socket.id];
-            // console.log("User disconnected")
         })
 
         socket.on("player-move", toKey => {
@@ -255,11 +246,9 @@ const mcdoanldwrap = () => {
             if (player.health == 0) return
             if (toKey == 37 && player.x > 0) player.x -= 5
             if (toKey == 38 && player.y > 0) player.y -= 5
-            if (toKey == 39 && player.x < cx + player.w) player.x += 5
-            if (toKey == 40 && player.y < cy + player.h) player.y += 5
+            if (toKey == 39 && player.x < cx - player.w) player.x += 5
+            if (toKey == 40 && player.y < cy - player.h) player.y += 5
             if (player.mana <= 99) player.mana += 1
-                //socket.emit("player-move", player)
-                //socket.broadcast.emit("player-move", player)
         })
 
         socket.on("player-shoot", lastDir => {
@@ -344,21 +333,17 @@ const mcdoanldwrap = () => {
         }
     }
 
+    //Gem object
     function Gem(x, y) {
         this.x = x
         this.y = y
         this.w = 20
         this.h = 20
-        this.collision = () => {
-            Object.keys(players).forEach(p => {
-                hitWall(this, players[p])
-            })
-        }
-        this.draw = () => {
-            this.collision()
-        }
+        this.collision = () => { Object.keys(players).forEach(p => { hitWall(this, players[p]) }) }
+        this.draw = () => { this.collision() }
     }
 
+    //Get dir from last dir
     const getDir = (key) => {
         let dir = ""
         switch (key) {
@@ -381,4 +366,5 @@ const mcdoanldwrap = () => {
     }
 }
 
-mcdoanldwrap()
+//Start server
+wrapper()
