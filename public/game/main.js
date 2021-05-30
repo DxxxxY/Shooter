@@ -107,13 +107,46 @@ document.getElementById("join").addEventListener("click", e => {
         bulletsA = bullets
     })
 
-    socket.on("player-heal", player => {
-        players[player.playerId] = player
-    })
-
     socket.on("gems", gems => {
         gemsA = gems
     })
+
+    //Sounds
+    var damage = new Audio()
+    damage.src = "sounds/damage.wav"
+    damage.volume = 0.3
+    socket.on("sound-damage", () => {
+        damage.play()
+    })
+
+    var death = new Audio()
+    death.src = "sounds/death.wav"
+    death.volume = 0.3
+    socket.on("sound-death", () => {
+        death.play()
+    })
+
+    var heal = new Audio()
+    heal.src = "sounds/heal.wav"
+    heal.volume = 0.3
+    socket.on("sound-heal", () => {
+        heal.play()
+    })
+
+    var pickup = new Audio()
+    pickup.src = "sounds/pickup.wav"
+    pickup.volume = 0.3
+    socket.on("sound-pickup", () => {
+        pickup.play()
+    })
+
+    var shoot = new Audio()
+    shoot.src = "sounds/shoot.wav"
+    shoot.volume = 0.3
+    socket.on("sound-shoot", () => {
+        shoot.play()
+    })
+
 
     socket.on("gameover", winTeam => {
         if (players[socket.id].team == winTeam) {
@@ -164,6 +197,11 @@ document.getElementById("join").addEventListener("click", e => {
                 socket.emit("player-shoot", lastDir)
             }
         })
+        var theme = new Audio()
+        theme.src = "sounds/theme.mp3"
+        theme.volume = 0.3
+        theme.play()
+        theme.loop = true
         game()
     })
 })
@@ -225,7 +263,7 @@ function Projectile(x, y, w, h, color, damage, speed, dir, enemy, owner, xory = 
 }
 
 var gem = new Image();
-gem.src = 'gem.png';
+gem.src = 'textures/gem.png';
 
 //Gem object
 function Gem(x, y) {

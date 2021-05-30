@@ -86,6 +86,7 @@ const mcdoanldwrap = () => {
             if (a.owner == b.team) return
             bullets.splice(bullets.indexOf(a), 1)
             if (a.damage >= b.health) {
+                io.emit("sound-death")
                 b.health = 0
                     //Drop held gems
                 if (b.gems != 0) {
@@ -102,12 +103,14 @@ const mcdoanldwrap = () => {
                 return
             }
             if (a.damage > 0) b.health -= a.damage
+            io.emit("sound-damage")
             return
         }
         if (collision(a, b) && a instanceof Gem) {
             if (b.health == 0) return
             b.gems += 1
             gems.splice(gems.indexOf(a), 1)
+            io.emit("sound-pickup")
             return
         }
     }
@@ -264,6 +267,7 @@ const mcdoanldwrap = () => {
             if (player.health == 0) return
             let bullet = new Projectile(player.x + 20, player.y + 20, 20, 5, "red", 10, 5, "", false, player.team, lastDir)
             bullets.push(bullet)
+            io.emit("sound-shoot")
         })
 
         socket.on("player-heal", () => {
@@ -273,8 +277,7 @@ const mcdoanldwrap = () => {
                 player.mana = 0
                 if (player.health >= 75) player.health = 100
                 else player.health += 25
-                socket.emit("player-heal", player)
-                socket.broadcast.emit("player-heal", player)
+                io.emit("sound-heal")
             }
         })
     })
